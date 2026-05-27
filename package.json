@@ -30,6 +30,7 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.52.2",
     "react-leaflet": "^4.2.1",
+    "resend": "^6.12.4",
     "tailwind-merge": "^2.4.0",
     "zod": "^3.23.8"
   },

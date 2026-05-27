@@ -1,16 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calendar, ArrowRight, MessageCircle, AlertCircle } from "lucide-react"
+import { Calendar, ArrowRight, MessageCircle, AlertCircle, CheckCircle2 } from "lucide-react"
 import { calculateDays, calculateTotalPrice, formatPrice, generateWhatsAppMessage, getWhatsAppUrl } from "@/lib/utils"
 import { useSettings } from "@/components/providers/SettingsProvider"
-import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar"
+import { AvailabilityCalendar, type BookedRange } from "@/components/booking/AvailabilityCalendar"
 
 const bookingSchema = z.object({
   startDate: z.string().min(1, "Date requise"),
@@ -20,6 +20,10 @@ const bookingSchema = z.object({
 type FormData = z.infer<typeof bookingSchema>
 interface BookingFormProps { car: any }
 
+function rangesOverlap(ranges: BookedRange[], start: string, end: string): boolean {
+  return ranges.some((r) => r.startDate <= end && r.endDate >= start)
+}
+
 export function BookingForm({ car }: BookingFormProps) {
   const { data: session } = useSession()
   const router = useRouter()
@@ -28,7 +32,15 @@ export function BookingForm({ car }: BookingFormProps) {
   const [success, setSuccess] = useState(false)
   const [bookingData, setBookingData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [ranges, setRanges] = useState<BookedRange[]>([])
   const today = new Date().toISOString().split("T")[0]
+
+  useEffect(() => {
+    fetch(`/api/cars/${car.id}/availability`)
+      .then((r) => r.json())
+      .then((data: BookedRange[]) => setRanges(data))
+      .catch(() => {})
+  }, [car.id])
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(bookingSchema) })
   const startDate = watch("startDate") ?? ""
@@ -36,13 +48,16 @@ export function BookingForm({ car }: BookingFormProps) {
   const days = startDate && endDate ? calculateDays(new Date(startDate), new Date(endDate)) : 0
   const total = days > 0 ? calculateTotalPrice(Number(car.pricePerDay), new Date(startDate), new Date(endDate)) : 0
 
+  // Vérification disponibilité temps réel
+  const datesConflict = startDate && endDate && new Date(endDate) > new Date(startDate)
+    ? rangesOverlap(ranges, startDate, endDate)
+    : false
+
   const handleCalendarClick = (date: string) => {
     if (!startDate || date < startDate || (startDate && endDate)) {
-      // Premier clic ou reset : on (re)pose startDate et vide endDate
       setValue("startDate", date, { shouldValidate: true })
       setValue("endDate", "", { shouldValidate: false })
     } else {
-      // Deuxième clic valide : on pose endDate
       setValue("endDate", date, { shouldValidate: true })
     }
   }
@@ -65,7 +80,7 @@ export function BookingForm({ car }: BookingFormProps) {
       <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="bg-neo-green-light border border-neo-green/20 rounded-2xl p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-neo-green rounded-xl flex items-center justify-center"><Calendar className="w-5 h-5 text-white" /></div>
-          <div><h3 className="text-sm font-bold text-neo-text">Réservation envoyée !</h3><p className="text-xs text-neo-muted">Confirmation sous 24h</p></div>
+          <div><h3 className="text-sm font-bold text-neo-text">Réservation envoyée !</h3><p className="text-xs text-neo-muted">Confirmation sous 24h · Un email vous a été envoyé</p></div>
         </div>
         <a href={waUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] text-white text-sm font-semibold rounded-2xl hover:bg-[#22c55e] transition-colors">
           <MessageCircle className="w-4 h-4 fill-white" /> WhatsApp
@@ -78,15 +93,8 @@ export function BookingForm({ car }: BookingFormProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <p className="text-xs font-semibold uppercase tracking-wider text-neo-light">Réserver</p>
 
-      {/* Calendrier de disponibilité */}
-      <AvailabilityCalendar
-        carId={car.id}
-        startDate={startDate}
-        endDate={endDate}
-        onDateClick={handleCalendarClick}
-      />
+      <AvailabilityCalendar ranges={ranges} startDate={startDate} endDate={endDate} onDateClick={handleCalendarClick} />
 
-      {/* Inputs dates */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-[10px] font-semibold text-neo-muted mb-1 block">Début</label>
@@ -100,8 +108,25 @@ export function BookingForm({ car }: BookingFormProps) {
         </div>
       </div>
 
+      {/* Indicateur disponibilité temps réel */}
       <AnimatePresence>
-        {days > 0 && (
+        {startDate && endDate && new Date(endDate) > new Date(startDate) && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className={`flex items-center gap-2 text-xs px-3 py-2.5 rounded-xl ${datesConflict ? "bg-red-50 text-red-600" : "bg-neo-green-light text-neo-green-dark"}`}
+          >
+            {datesConflict
+              ? <><AlertCircle className="w-3.5 h-3.5 shrink-0" /> Ces dates sont déjà réservées</>
+              : <><CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Ces dates sont disponibles</>
+            }
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {days > 0 && !datesConflict && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="bg-neo-surface rounded-2xl p-4">
             <div className="flex justify-between text-sm text-neo-muted mb-2"><span>{formatPrice(Number(car.pricePerDay), currency, currencyLocale)} × {days}j</span><span>{formatPrice(total, currency, currencyLocale)}</span></div>
             <div className="border-t border-neo-border pt-2 flex justify-between"><span className="text-sm font-semibold text-neo-text">Total</span><span className="text-xl font-bold text-neo-text">{formatPrice(total, currency, currencyLocale)}</span></div>
@@ -111,8 +136,9 @@ export function BookingForm({ car }: BookingFormProps) {
 
       {error && <div className="flex items-center gap-2 text-red-500 text-sm p-3 bg-red-50 rounded-2xl"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
 
-      <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-4 disabled:opacity-50 disabled:cursor-not-allowed">
-        {loading ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />En cours...</span>
+      <button type="submit" disabled={loading || datesConflict} className="btn-primary w-full justify-center py-4 disabled:opacity-50 disabled:cursor-not-allowed">
+        {loading
+          ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />En cours...</span>
           : <>{session ? "Réserver" : "Se connecter pour réserver"}<ArrowRight className="w-4 h-4" /></>}
       </button>
     </form>

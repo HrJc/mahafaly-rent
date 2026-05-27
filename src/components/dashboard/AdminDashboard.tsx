@@ -4,7 +4,7 @@ import { useState, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Car, Users, TrendingUp, Clock, CheckCircle, BarChart2, Settings, Plus, Pencil, Trash2, Phone } from "lucide-react"
+import { Car, Users, TrendingUp, Clock, CheckCircle, BarChart2, Settings, Plus, Pencil, Trash2, Phone, UserCircle2 } from "lucide-react"
 import { formatPrice, formatDate, getStatusColor, getStatusLabel } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import type { BookingWithUser, Car as CarType } from "@/types"
@@ -21,7 +21,9 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ stats, bookings, cars }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"bookings" | "types" | "cars" | "settings">("bookings")
+  const [activeTab, setActiveTab] = useState<"bookings" | "users" | "types" | "cars" | "settings">("bookings")
+  const [usersList, setUsersList] = useState<{ id: string; name: string | null; email: string | null; phone: string | null; role: string; createdAt: string; _count: { bookings: number } }[]>([])
+  const [usersLoaded, setUsersLoaded] = useState(false)
   const [updating, setUpdating] = useState<string | null>(null)
   const [carModal, setCarModal] = useState<{ open: boolean; car: CarType | null }>({ open: false, car: null })
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -43,6 +45,11 @@ export function AdminDashboard({ stats, bookings, cars }: AdminDashboardProps) {
     setConfirmDeleteId(null)
     router.refresh()
   }, [router])
+
+  const loadUsers = () => {
+    if (usersLoaded) return
+    fetch("/api/admin/users").then(r => r.json()).then(data => { setUsersList(data); setUsersLoaded(true) }).catch(() => {})
+  }
 
   const openCreate = () => setCarModal({ open: true, car: null })
   const openEdit = (car: CarType) => setCarModal({ open: true, car })
@@ -73,18 +80,23 @@ export function AdminDashboard({ stats, bookings, cars }: AdminDashboardProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-white rounded-2xl border border-neo-border p-1 w-fit">
-          {(["bookings", "types", "cars", "settings"] as const).map((tab) => (
+        <div className="flex gap-1 mb-6 bg-white rounded-2xl border border-neo-border p-1 w-fit flex-wrap">
+          {([
+            { key: "bookings", label: "Réservations", icon: null },
+            { key: "users", label: "Utilisateurs", icon: <Users className="w-3 h-3" /> },
+            { key: "types", label: "Types", icon: null },
+            { key: "cars", label: "Véhicules", icon: null },
+            { key: "settings", label: "Paramètres", icon: <Settings className="w-3 h-3" /> },
+          ] as { key: "bookings" | "users" | "types" | "cars" | "settings"; label: string; icon: React.ReactNode }[]).map(({ key, label, icon }) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={key}
+              onClick={() => { setActiveTab(key); if (key === "users") loadUsers() }}
               className={cn(
                 "flex items-center gap-1.5 text-xs font-semibold px-5 py-2 rounded-xl transition-all",
-                activeTab === tab ? "bg-neo-text text-white" : "text-neo-muted hover:text-neo-text"
+                activeTab === key ? "bg-neo-text text-white" : "text-neo-muted hover:text-neo-text"
               )}
             >
-              {tab === "settings" && <Settings className="w-3 h-3" />}
-              {tab === "bookings" ? "Réservations" : tab === "types" ? "Types" : tab === "cars" ? "Véhicules" : "Paramètres"}
+              {icon}{label}
             </button>
           ))}
         </div>
@@ -145,6 +157,58 @@ export function AdminDashboard({ stats, bookings, cars }: AdminDashboardProps) {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Utilisateurs */}
+        {activeTab === "users" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl border border-neo-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-neo-border">
+                    {["Utilisateur", "Contact", "Rôle", "Réservations", "Inscrit le"].map((h) => (
+                      <th key={h} className="text-left text-[10px] font-semibold uppercase tracking-wider text-neo-light px-5 py-4">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersList.map((u) => (
+                    <tr key={u.id} className="border-b border-neo-border/50 hover:bg-neo-surface/50 transition-colors">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-xl bg-neo-green/10 flex items-center justify-center text-xs font-bold text-neo-green shrink-0">
+                            {u.name?.[0] ?? <UserCircle2 className="w-4 h-4" />}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-neo-text">{u.name ?? "—"}</p>
+                            <p className="text-[10px] text-neo-light">{u.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        {u.phone
+                          ? <a href={`tel:${u.phone}`} className="flex items-center gap-1.5 text-xs text-neo-muted hover:text-neo-text transition-colors"><Phone className="w-3 h-3 shrink-0" />{u.phone}</a>
+                          : <span className="text-[10px] text-neo-light">—</span>}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={cn("badge text-[10px]", u.role === "ADMIN" ? "bg-neo-text text-white" : "bg-neo-surface text-neo-muted")}>
+                          {u.role === "ADMIN" ? "Admin" : "Client"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-xs text-neo-muted text-center">{u._count.bookings}</td>
+                      <td className="px-5 py-4 text-xs text-neo-muted">{new Date(u.createdAt).toLocaleDateString("fr-FR")}</td>
+                    </tr>
+                  ))}
+                  {usersList.length === 0 && usersLoaded && (
+                    <tr><td colSpan={5} className="px-5 py-10 text-center text-xs text-neo-light">Aucun utilisateur</td></tr>
+                  )}
+                  {!usersLoaded && (
+                    <tr><td colSpan={5} className="px-5 py-10 text-center text-xs text-neo-light">Chargement…</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

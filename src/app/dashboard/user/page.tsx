@@ -25,5 +25,10 @@ export default async function UserDashboardPage() {
   const carIds = new Set(cars.map((c) => c.id))
   const bookings = allBookings.filter((b) => carIds.has(b.carId))
 
-  return <UserDashboard user={session.user} bookings={serializeData(bookings)} />
+  const userRecord = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { phone: true },
+  })
+
+  return <UserDashboard user={{ ...session.user, phone: userRecord?.phone ?? null }} bookings={serializeData(bookings)} />
 }

@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { calculateTotalPrice } from "@/lib/utils"
+import { calculateTotalPrice, formatPrice } from "@/lib/utils"
+import { sendBookingConfirmationToUser, sendNewBookingToAdmin } from "@/lib/email"
+import { getSettings } from "@/lib/settings"
 
 const bookingSchema = z.object({
   carId: z.string().min(1),
@@ -30,23 +32,16 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check car availability
     const car = await prisma.car.findUnique({ where: { id: data.carId } })
     if (!car || !car.available) {
-      return NextResponse.json(
-        { message: "Ce véhicule n'est pas disponible" },
-        { status: 400 }
-      )
+      return NextResponse.json({ message: "Ce véhicule n'est pas disponible" }, { status: 400 })
     }
 
-    // Check for overlapping bookings
     const overlapping = await prisma.booking.findFirst({
       where: {
         carId: data.carId,
         status: { in: ["PENDING", "APPROVED"] },
-        OR: [
-          { startDate: { lte: endDate }, endDate: { gte: startDate } },
-        ],
+        OR: [{ startDate: { lte: endDate }, endDate: { gte: startDate } }],
       },
     })
 
@@ -60,16 +55,24 @@ export async function POST(request: Request) {
     const totalPrice = calculateTotalPrice(Number(car.pricePerDay), startDate, endDate)
 
     const booking = await prisma.booking.create({
-      data: {
-        userId: session.user.id,
-        carId: data.carId,
-        startDate,
-        endDate,
-        totalPrice,
-        status: "PENDING",
-      },
-      include: { car: true },
+      data: { userId: session.user.id, carId: data.carId, startDate, endDate, totalPrice, status: "PENDING" },
+      include: { car: true, user: true },
     })
+
+    // Emails (non-bloquants)
+    const [settings] = await Promise.all([getSettings()])
+    const fmt = (d: Date) => d.toLocaleDateString("fr-FR")
+    const emailData = {
+      userName: booking.user.name ?? "Client",
+      userEmail: booking.user.email ?? "",
+      carName: car.name,
+      startDate: fmt(startDate),
+      endDate: fmt(endDate),
+      totalPrice: formatPrice(Number(totalPrice), settings.currency, settings.currencyLocale),
+      bookingId: booking.id,
+    }
+    sendBookingConfirmationToUser(emailData)
+    if (settings.contactEmail) sendNewBookingToAdmin(emailData, settings.contactEmail)
 
     return NextResponse.json(booking, { status: 201 })
   } catch (error) {
@@ -81,12 +84,10 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const session = await auth()
-    if (!session) {
-      return NextResponse.json({ message: "Non autorisé" }, { status: 401 })
-    }
+    if (!session) return NextResponse.json({ message: "Non autorisé" }, { status: 401 })
 
     const bookings = await prisma.booking.findMany({
       where: { userId: session.user.id },
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
     })
 
     return NextResponse.json(bookings)
-  } catch (error) {
+  } catch {
     return NextResponse.json({ message: "Erreur serveur" }, { status: 500 })
   }
 }
