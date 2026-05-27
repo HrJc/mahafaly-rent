@@ -8,6 +8,7 @@ import { useSession, signOut } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Menu, X, ChevronDown, Car, LayoutDashboard, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useSettings } from "@/components/providers/SettingsProvider"
 
 const navLinks = [
   { href: "/", label: "Accueil" },
@@ -22,6 +23,7 @@ export function Navbar() {
   const { data: session } = useSession()
   const pathname = usePathname()
   const isHome = pathname === "/"
+  const { appName, logoUrl } = useSettings()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50)
@@ -45,10 +47,14 @@ export function Navbar() {
         <div className="max-w-6xl mx-auto px-5">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-9 h-9 bg-neo-green rounded-xl flex items-center justify-center">
-                <Car className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-lg font-bold text-neo-text tracking-tight">Mahafaly</span>
+              {logoUrl ? (
+                <Image src={logoUrl} alt={appName} width={36} height={36} className="rounded-xl object-contain" />
+              ) : (
+                <div className="w-9 h-9 bg-neo-green rounded-xl flex items-center justify-center">
+                  <Car className="w-4 h-4 text-white" />
+                </div>
+              )}
+              <span className="text-lg font-bold text-neo-text tracking-tight">{appName}</span>
             </Link>
 
             <div className="hidden md:flex items-center gap-8">

@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Save, Globe, MessageCircle, Mail, MapPin, Phone, Type, FileText } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Save, Globe, MessageCircle, Mail, MapPin, Phone, Type, FileText, Upload, Loader2, X } from "lucide-react"
 import { motion } from "framer-motion"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import type { AppSettings } from "@/types"
 
@@ -16,12 +17,13 @@ const CURRENCIES = [
 const DEFAULT: AppSettings = {
   appName: "Mahafaly Rent",
   description: "Location de voitures de luxe à Madagascar",
-  currency: "EUR",
+  currency: "MGA",
   currencyLocale: "fr-MG",
   whatsappNumber: "261340000000",
   contactEmail: "contact@mahafaly.mg",
   phone: "+261 34 00 000",
   address: "Toliara, Madagascar",
+  logoUrl: "",
 }
 
 type SaveState = "idle" | "saving" | "saved" | "error"
@@ -64,6 +66,8 @@ export function SettingsPanel() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT)
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [loading, setLoading] = useState(true)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -85,6 +89,21 @@ export function SettingsPanel() {
       currency: code,
       currencyLocale: found?.locale ?? s.currencyLocale,
     }))
+  }
+
+  const handleLogoUpload = async (file: File) => {
+    setUploadingLogo(true)
+    const fd = new FormData()
+    fd.append("file", file)
+    try {
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        setSettings((s) => ({ ...s, logoUrl: data.url }))
+      }
+    } finally {
+      setUploadingLogo(false)
+    }
   }
 
   const handleSave = async () => {
@@ -124,6 +143,54 @@ export function SettingsPanel() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+
+      {/* Logo */}
+      <div className="bg-white rounded-2xl border border-neo-border p-6">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-neo-light mb-4">Logo</p>
+        <div className="flex items-center gap-5">
+          {/* Preview */}
+          <div className="w-20 h-20 rounded-2xl border border-neo-border bg-neo-surface flex items-center justify-center overflow-hidden shrink-0">
+            {settings.logoUrl ? (
+              <Image src={settings.logoUrl} alt="Logo" width={80} height={80} className="w-full h-full object-contain p-1" />
+            ) : (
+              <span className="text-[10px] text-neo-light text-center px-2">Aucun logo</span>
+            )}
+          </div>
+
+          <div className="flex-1 space-y-2">
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) handleLogoUpload(file)
+                e.target.value = ""
+              }}
+            />
+            <button
+              type="button"
+              disabled={uploadingLogo}
+              onClick={() => logoInputRef.current?.click()}
+              className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-xl border border-neo-border text-neo-muted hover:text-neo-text hover:border-neo-text transition-colors disabled:opacity-50"
+            >
+              {uploadingLogo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              {uploadingLogo ? "Upload en cours…" : "Choisir un logo"}
+            </button>
+            {settings.logoUrl && (
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, logoUrl: "" }))}
+                className="flex items-center gap-1.5 text-[10px] font-semibold text-neo-muted hover:text-red-500 transition-colors"
+              >
+                <X className="w-3 h-3" /> Supprimer le logo
+              </button>
+            )}
+            <p className="text-[10px] text-neo-light">PNG, JPG ou SVG — max 10 Mo. Affiché dans la barre de navigation et le pied de page.</p>
+          </div>
+        </div>
+      </div>
 
       {/* Général */}
       <div className="bg-white rounded-2xl border border-neo-border p-6">

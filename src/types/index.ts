@@ -9,6 +9,7 @@ export interface AppSettings {
   contactEmail: string
   phone: string
   address: string
+  logoUrl: string
 }
 
 export type { Car, Booking, User, BookingStatus, Transmission }

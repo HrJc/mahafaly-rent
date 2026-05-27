@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   contactEmail: "contact@mahafaly.mg",
   phone: "+261 34 00 000",
   address: "Toliara, Madagascar",
+  logoUrl: "",
 }
 
 export async function getSettings(): Promise<AppSettings> {
