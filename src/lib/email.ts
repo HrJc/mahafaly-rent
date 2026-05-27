@@ -33,6 +33,7 @@ interface BookingEmailData {
 
 export async function sendBookingConfirmationToUser(data: BookingEmailData) {
   if (!process.env.RESEND_API_KEY) return
+  const to = process.env.RESEND_TO_OVERRIDE ?? data.userEmail
   const html = base(`
     <div class="header"><h1>Mahafaly Rent</h1><p>Confirmation de réservation</p></div>
     <div class="body">
@@ -46,11 +47,12 @@ export async function sendBookingConfirmationToUser(data: BookingEmailData) {
     </div>
     <div class="footer">Mahafaly Rent · Madagascar</div>
   `)
-  await resend.emails.send({ from: FROM, to: data.userEmail, subject: `Réservation reçue — ${data.carName}`, html }).catch(() => {})
+  await resend.emails.send({ from: FROM, to, subject: `Réservation reçue — ${data.carName}`, html }).catch((e) => console.error("[email]", e))
 }
 
 export async function sendNewBookingToAdmin(data: BookingEmailData, adminEmail: string) {
   if (!process.env.RESEND_API_KEY || !adminEmail) return
+  const to = process.env.RESEND_TO_OVERRIDE ?? adminEmail
   const html = base(`
     <div class="header"><h1>Mahafaly Rent</h1><p>Nouvelle réservation</p></div>
     <div class="body">
@@ -64,7 +66,7 @@ export async function sendNewBookingToAdmin(data: BookingEmailData, adminEmail: 
     </div>
     <div class="footer">Connectez-vous au dashboard admin pour approuver ou refuser.</div>
   `)
-  await resend.emails.send({ from: FROM, to: adminEmail, subject: `Nouvelle réservation — ${data.carName} (${data.userName})`, html }).catch(() => {})
+  await resend.emails.send({ from: FROM, to, subject: `Nouvelle réservation — ${data.carName} (${data.userName})`, html }).catch((e) => console.error("[email]", e))
 }
 
 export async function sendBookingStatusUpdate(data: BookingEmailData & { status: string }) {
@@ -97,5 +99,6 @@ export async function sendBookingStatusUpdate(data: BookingEmailData & { status:
     </div>
     <div class="footer">Mahafaly Rent · Madagascar</div>
   `)
-  await resend.emails.send({ from: FROM, to: data.userEmail, subject, html }).catch(() => {})
+  const to = process.env.RESEND_TO_OVERRIDE ?? data.userEmail
+  await resend.emails.send({ from: FROM, to, subject, html }).catch((e) => console.error("[email]", e))
 }
