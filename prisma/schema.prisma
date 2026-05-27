@@ -44,6 +44,7 @@ model User {
   emailVerified DateTime?
   image         String?   @db.VarChar(500)
   password      String?
+  phone         String?   @db.VarChar(20)
   role          Role      @default(USER)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

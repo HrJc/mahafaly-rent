@@ -4,7 +4,7 @@ import { useState, useCallback } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Car, Users, TrendingUp, Clock, CheckCircle, BarChart2, Settings, Plus, Pencil, Trash2 } from "lucide-react"
+import { Car, Users, TrendingUp, Clock, CheckCircle, BarChart2, Settings, Plus, Pencil, Trash2, Phone } from "lucide-react"
 import { formatPrice, formatDate, getStatusColor, getStatusLabel } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import type { BookingWithUser, Car as CarType } from "@/types"
@@ -96,7 +96,7 @@ export function AdminDashboard({ stats, bookings, cars }: AdminDashboardProps) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-neo-border">
-                    {["Client", "Véhicule", "Dates", "Total", "Statut", "Actions"].map((h) => (
+                    {["Client", "Contact", "Véhicule", "Dates", "Total", "Statut", "Actions"].map((h) => (
                       <th key={h} className="text-left text-[10px] font-semibold uppercase tracking-wider text-neo-light px-5 py-4">{h}</th>
                     ))}
                   </tr>
@@ -112,6 +112,19 @@ export function AdminDashboard({ stats, bookings, cars }: AdminDashboardProps) {
                             <p className="text-[10px] text-neo-light">{b.user.email}</p>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        {b.user.phone ? (
+                          <a
+                            href={`tel:${b.user.phone}`}
+                            className="flex items-center gap-1.5 text-xs text-neo-muted hover:text-neo-text transition-colors"
+                          >
+                            <Phone className="w-3 h-3 shrink-0" />
+                            {b.user.phone}
+                          </a>
+                        ) : (
+                          <span className="text-[10px] text-neo-light">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-xs text-neo-muted">{b.car.name}</td>
                       <td className="px-5 py-4">

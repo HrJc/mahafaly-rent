@@ -7,6 +7,7 @@ const registerSchema = z.object({
   name: z.string().min(2, "Nom requis (2 caractères min)"),
   email: z.string().email("Email invalide"),
   password: z.string().min(6, "Mot de passe requis (6 caractères min)"),
+  phone: z.string().min(6, "Numéro de téléphone invalide").optional(),
 })
 
 export async function POST(request: Request) {
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
         name: data.name,
         email: data.email,
         password: hashedPassword,
+        phone: data.phone ?? null,
       },
     })
 

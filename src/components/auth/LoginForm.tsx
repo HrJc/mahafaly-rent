@@ -17,6 +17,7 @@ export function LoginForm() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [phone, setPhone] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,7 +29,7 @@ export function LoginForm() {
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password }),
+          body: JSON.stringify({ name, email, password, phone: phone || undefined }),
         })
         const data = await res.json()
         if (!res.ok) {
@@ -88,10 +89,24 @@ export function LoginForm() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "register" && (
-              <div>
-                <label className="text-[10px] font-semibold text-neo-muted mb-1 block">Nom</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Votre nom" className="input-field" />
-              </div>
+              <>
+                <div>
+                  <label className="text-[10px] font-semibold text-neo-muted mb-1 block">Nom complet</label>
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Votre nom" className="input-field" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-neo-muted mb-1 block">
+                    Téléphone <span className="text-neo-light font-normal">(utilisé pour vous contacter)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+261 34 00 000 00"
+                    className="input-field"
+                  />
+                </div>
+              </>
             )}
 
             <div>
