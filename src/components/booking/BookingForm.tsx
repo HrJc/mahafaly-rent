@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Calendar, ArrowRight, MessageCircle, AlertCircle } from "lucide-react"
 import { calculateDays, calculateTotalPrice, formatPrice, generateWhatsAppMessage, getWhatsAppUrl } from "@/lib/utils"
 import { useSettings } from "@/components/providers/SettingsProvider"
+import { AvailabilityCalendar } from "@/components/booking/AvailabilityCalendar"
 
 const bookingSchema = z.object({
   startDate: z.string().min(1, "Date requise"),
@@ -29,11 +30,22 @@ export function BookingForm({ car }: BookingFormProps) {
   const [error, setError] = useState<string | null>(null)
   const today = new Date().toISOString().split("T")[0]
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(bookingSchema) })
-  const startDate = watch("startDate")
-  const endDate = watch("endDate")
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(bookingSchema) })
+  const startDate = watch("startDate") ?? ""
+  const endDate = watch("endDate") ?? ""
   const days = startDate && endDate ? calculateDays(new Date(startDate), new Date(endDate)) : 0
   const total = days > 0 ? calculateTotalPrice(Number(car.pricePerDay), new Date(startDate), new Date(endDate)) : 0
+
+  const handleCalendarClick = (date: string) => {
+    if (!startDate || date < startDate || (startDate && endDate)) {
+      // Premier clic ou reset : on (re)pose startDate et vide endDate
+      setValue("startDate", date, { shouldValidate: true })
+      setValue("endDate", "", { shouldValidate: false })
+    } else {
+      // Deuxième clic valide : on pose endDate
+      setValue("endDate", date, { shouldValidate: true })
+    }
+  }
 
   const onSubmit = async (data: FormData) => {
     if (!session) { router.push(`/login?callbackUrl=/cars/${car.id}`); return }
@@ -65,6 +77,16 @@ export function BookingForm({ car }: BookingFormProps) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <p className="text-xs font-semibold uppercase tracking-wider text-neo-light">Réserver</p>
+
+      {/* Calendrier de disponibilité */}
+      <AvailabilityCalendar
+        carId={car.id}
+        startDate={startDate}
+        endDate={endDate}
+        onDateClick={handleCalendarClick}
+      />
+
+      {/* Inputs dates */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-[10px] font-semibold text-neo-muted mb-1 block">Début</label>
@@ -77,6 +99,7 @@ export function BookingForm({ car }: BookingFormProps) {
           {errors.endDate && <p className="text-xs text-red-500 mt-1">{errors.endDate.message}</p>}
         </div>
       </div>
+
       <AnimatePresence>
         {days > 0 && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="bg-neo-surface rounded-2xl p-4">
@@ -85,7 +108,9 @@ export function BookingForm({ car }: BookingFormProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
       {error && <div className="flex items-center gap-2 text-red-500 text-sm p-3 bg-red-50 rounded-2xl"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
+
       <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-4 disabled:opacity-50 disabled:cursor-not-allowed">
         {loading ? <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />En cours...</span>
           : <>{session ? "Réserver" : "Se connecter pour réserver"}<ArrowRight className="w-4 h-4" /></>}
