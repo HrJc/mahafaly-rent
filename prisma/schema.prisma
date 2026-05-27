@@ -1,0 +1,123 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String  @db.VarChar(50)
+  provider          String  @db.VarChar(50)
+  providerAccountId String  @db.VarChar(191)
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String? @db.VarChar(50)
+  scope             String? @db.Text
+  id_token          String? @db.Text
+  session_state     String? @db.VarChar(191)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @db.VarChar(191)
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?   @db.VarChar(191)
+  email         String?   @unique @db.VarChar(191)
+  emailVerified DateTime?
+  image         String?   @db.VarChar(500)
+  password      String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  bookings Booking[]
+}
+
+model VerificationToken {
+  identifier String   @db.VarChar(50)
+  token      String   @unique @db.VarChar(191)
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Car {
+  id           String   @id @default(cuid())
+  name         String
+  brand        String
+  model        String
+  year         Int
+  pricePerDay  Decimal
+  transmission Transmission
+  seats        Int
+  type         String
+  fuel         String
+  images       Json
+  description  String   @db.Text
+  features     Json
+  available    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  bookings Booking[]
+}
+
+model VehicleCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique @db.VarChar(50)
+  createdAt DateTime @default(now())
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  userId     String
+  carId      String
+  startDate  DateTime
+  endDate    DateTime
+  totalPrice Decimal
+  status     BookingStatus @default(PENDING)
+  message    String?       @db.Text
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  car  Car  @relation(fields: [carId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  CANCELLED
+  COMPLETED
+}
+
+enum Transmission {
+  MANUAL
+  AUTOMATIC
+}
+
