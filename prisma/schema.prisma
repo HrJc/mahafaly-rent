@@ -88,6 +88,12 @@ model VehicleCategory {
   createdAt DateTime @default(now())
 }
 
+model Setting {
+  key       String   @id @db.VarChar(50)
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
 model Booking {
   id         String        @id @default(cuid())
   userId     String

@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Plus, Trash2, AlertCircle } from "lucide-react"
+import { X, Plus, Trash2, AlertCircle, Upload, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Car } from "@/types"
 
@@ -57,6 +57,8 @@ export function CarFormModal({ car, onClose, onSave }: CarFormModalProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [availableTypes, setAvailableTypes] = useState<string[]>([])
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch("/api/admin/types")
@@ -107,6 +109,25 @@ export function CarFormModal({ car, onClose, onSave }: CarFormModalProps) {
 
   const removeListItem = (key: "images" | "features", index: number) =>
     setForm((f) => ({ ...f, [key]: f[key].filter((_, i) => i !== index) }))
+
+  const handleFileUpload = async (index: number, file: File) => {
+    setUploadingIndex(index)
+    const fd = new FormData()
+    fd.append("file", file)
+    try {
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        setListItem("images", index, data.url)
+      } else {
+        setError(data.error ?? "Échec de l'upload")
+      }
+    } catch {
+      setError("Erreur réseau lors de l'upload")
+    } finally {
+      setUploadingIndex(null)
+    }
+  }
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.brand.trim() || !form.model.trim() || !form.pricePerDay) {
@@ -250,24 +271,72 @@ export function CarFormModal({ car, onClose, onSave }: CarFormModalProps) {
 
             {/* Images */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neo-light mb-3">Images (URLs)</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neo-light mb-3">Images</p>
               <div className="space-y-2">
                 {form.images.map((url, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      className="input-field text-xs flex-1"
-                      value={url}
-                      onChange={(e) => setListItem("images", i, e.target.value)}
-                      placeholder="https://images.unsplash.com/..."
-                    />
-                    {form.images.length > 1 && (
-                      <button onClick={() => removeListItem("images", i)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-neo-border text-neo-muted hover:text-red-500 hover:border-red-200 transition-colors">
-                        <Trash2 className="w-3 h-3" />
+                  <div key={i} className="space-y-1.5">
+                    <div className="flex gap-2">
+                      {/* URL input */}
+                      <input
+                        className="input-field text-xs flex-1"
+                        value={url}
+                        onChange={(e) => setListItem("images", i, e.target.value)}
+                        placeholder="https://... ou choisissez un fichier →"
+                      />
+                      {/* Upload button */}
+                      <button
+                        type="button"
+                        disabled={uploadingIndex !== null}
+                        onClick={() => {
+                          fileInputRef.current?.setAttribute("data-index", String(i))
+                          fileInputRef.current?.click()
+                        }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-neo-border text-neo-muted hover:text-neo-text hover:border-neo-text transition-colors disabled:opacity-40"
+                        title="Uploader un fichier"
+                      >
+                        {uploadingIndex === i ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Upload className="w-3 h-3" />
+                        )}
                       </button>
+                      {form.images.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeListItem("images", i)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-neo-border text-neo-muted hover:text-red-500 hover:border-red-200 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    {/* Preview */}
+                    {url && url.startsWith("http") && (
+                      <div className="relative w-full h-24 rounded-xl overflow-hidden border border-neo-border bg-neo-surface">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }} />
+                      </div>
                     )}
                   </div>
                 ))}
-                <button onClick={() => addListItem("images")} className="flex items-center gap-1.5 text-[10px] font-semibold text-neo-muted hover:text-neo-text transition-colors">
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    const idx = Number(fileInputRef.current?.getAttribute("data-index") ?? 0)
+                    if (file) handleFileUpload(idx, file)
+                    e.target.value = ""
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => addListItem("images")}
+                  className="flex items-center gap-1.5 text-[10px] font-semibold text-neo-muted hover:text-neo-text transition-colors"
+                >
                   <Plus className="w-3 h-3" /> Ajouter une image
                 </button>
               </div>

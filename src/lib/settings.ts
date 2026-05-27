@@ -1,13 +1,10 @@
-import fs from "fs"
-import path from "path"
+import { prisma } from "@/lib/prisma"
 import type { AppSettings } from "@/types"
-
-const SETTINGS_PATH = path.join(process.cwd(), "src/data/settings.json")
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appName: "Mahafaly Rent",
   description: "Location de voitures de luxe à Madagascar",
-  currency: "EUR",
+  currency: "MGA",
   currencyLocale: "fr-MG",
   whatsappNumber: "261340000000",
   contactEmail: "contact@mahafaly.mg",
@@ -15,11 +12,24 @@ export const DEFAULT_SETTINGS: AppSettings = {
   address: "Toliara, Madagascar",
 }
 
-export function getSettings(): AppSettings {
+export async function getSettings(): Promise<AppSettings> {
   try {
-    const raw = fs.readFileSync(SETTINGS_PATH, "utf-8")
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+    const rows = await prisma.setting.findMany()
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]))
+    return { ...DEFAULT_SETTINGS, ...map } as AppSettings
   } catch {
     return { ...DEFAULT_SETTINGS }
   }
+}
+
+export async function saveSettings(data: Partial<AppSettings>): Promise<void> {
+  await Promise.all(
+    Object.entries(data).map(([key, value]) =>
+      prisma.setting.upsert({
+        where: { key },
+        update: { value: String(value) },
+        create: { key, value: String(value) },
+      })
+    )
+  )
 }

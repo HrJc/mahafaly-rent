@@ -51,7 +51,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const [session, settings] = await Promise.all([auth(), Promise.resolve(getSettings())])
+  const [session, settings] = await Promise.all([auth(), getSettings()])
   return (
     <html lang="fr" className="scroll-smooth">
       <body className={`${dmSans.variable} antialiased bg-white text-neo-text`}>
