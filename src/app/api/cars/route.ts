@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { CarType, Transmission } from "@prisma/client"
+import { Transmission } from "@prisma/client"
 
 const carsQuerySchema = z.object({
-  type: z.nativeEnum(CarType).optional(),
+  type: z.string().optional(),
   transmission: z.nativeEnum(Transmission).optional(),
   available: z.enum(["true", "false"]).optional(),
 })
