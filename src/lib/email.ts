@@ -1,7 +1,16 @@
-import { Resend } from "resend"
+import nodemailer from "nodemailer"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = process.env.RESEND_FROM_EMAIL ?? "Mahafaly Rent <onboarding@resend.dev>"
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT ?? 587),
+  secure: process.env.SMTP_SECURE === "true",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+})
+
+const FROM = process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "Mahafaly Rent"
 
 function base(content: string) {
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>
@@ -31,9 +40,12 @@ interface BookingEmailData {
   bookingId: string
 }
 
+async function send(to: string, subject: string, html: string) {
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return
+  await transporter.sendMail({ from: FROM, to, subject, html }).catch((e) => console.error("[email]", e))
+}
+
 export async function sendBookingConfirmationToUser(data: BookingEmailData) {
-  if (!process.env.RESEND_API_KEY) return
-  const to = process.env.RESEND_TO_OVERRIDE ?? data.userEmail
   const html = base(`
     <div class="header"><h1>Mahafaly Rent</h1><p>Confirmation de réservation</p></div>
     <div class="body">
@@ -47,12 +59,10 @@ export async function sendBookingConfirmationToUser(data: BookingEmailData) {
     </div>
     <div class="footer">Mahafaly Rent · Madagascar</div>
   `)
-  await resend.emails.send({ from: FROM, to, subject: `Réservation reçue — ${data.carName}`, html }).catch((e) => console.error("[email]", e))
+  await send(data.userEmail, `Réservation reçue — ${data.carName}`, html)
 }
 
 export async function sendNewBookingToAdmin(data: BookingEmailData, adminEmail: string) {
-  if (!process.env.RESEND_API_KEY || !adminEmail) return
-  const to = process.env.RESEND_TO_OVERRIDE ?? adminEmail
   const html = base(`
     <div class="header"><h1>Mahafaly Rent</h1><p>Nouvelle réservation</p></div>
     <div class="body">
@@ -66,22 +76,17 @@ export async function sendNewBookingToAdmin(data: BookingEmailData, adminEmail: 
     </div>
     <div class="footer">Connectez-vous au dashboard admin pour approuver ou refuser.</div>
   `)
-  await resend.emails.send({ from: FROM, to, subject: `Nouvelle réservation — ${data.carName} (${data.userName})`, html }).catch((e) => console.error("[email]", e))
+  await send(adminEmail, `Nouvelle réservation — ${data.carName} (${data.userName})`, html)
 }
 
 export async function sendBookingStatusUpdate(data: BookingEmailData & { status: string }) {
-  if (!process.env.RESEND_API_KEY) return
   const isApproved = data.status === "APPROVED"
   const isCancelled = data.status === "CANCELLED"
   if (!isApproved && !isCancelled) return
 
-  const badgeStyle = isApproved
-    ? "background:#f0fdf4;color:#166534"
-    : "background:#fef2f2;color:#991b1b"
+  const badgeStyle = isApproved ? "background:#f0fdf4;color:#166534" : "background:#fef2f2;color:#991b1b"
   const label = isApproved ? "Approuvée" : "Annulée"
-  const subject = isApproved
-    ? `Réservation approuvée — ${data.carName}`
-    : `Réservation annulée — ${data.carName}`
+  const subject = isApproved ? `Réservation approuvée — ${data.carName}` : `Réservation annulée — ${data.carName}`
   const message = isApproved
     ? "Votre réservation a été approuvée ! Vous pouvez contacter notre équipe pour finaliser les détails."
     : "Votre réservation a malheureusement été annulée. N'hésitez pas à nous contacter pour plus d'informations."
@@ -99,6 +104,5 @@ export async function sendBookingStatusUpdate(data: BookingEmailData & { status:
     </div>
     <div class="footer">Mahafaly Rent · Madagascar</div>
   `)
-  const to = process.env.RESEND_TO_OVERRIDE ?? data.userEmail
-  await resend.emails.send({ from: FROM, to, subject, html }).catch((e) => console.error("[email]", e))
+  await send(data.userEmail, subject, html)
 }
