@@ -59,8 +59,7 @@ export async function POST(request: Request) {
       include: { car: true, user: true },
     })
 
-    // Emails (non-bloquants)
-    const [settings] = await Promise.all([getSettings()])
+    const settings = await getSettings()
     const fmt = (d: Date) => d.toLocaleDateString("fr-FR")
     const emailData = {
       userName: booking.user.name ?? "Client",
@@ -71,8 +70,11 @@ export async function POST(request: Request) {
       totalPrice: formatPrice(Number(totalPrice), settings.currency, settings.currencyLocale),
       bookingId: booking.id,
     }
-    sendBookingConfirmationToUser(emailData)
-    if (settings.contactEmail) sendNewBookingToAdmin(emailData, settings.contactEmail)
+    const adminEmail = process.env.ADMIN_EMAIL ?? settings.contactEmail
+    await Promise.all([
+      sendBookingConfirmationToUser(emailData),
+      adminEmail ? sendNewBookingToAdmin(emailData, adminEmail) : Promise.resolve(),
+    ])
 
     return NextResponse.json(booking, { status: 201 })
   } catch (error) {

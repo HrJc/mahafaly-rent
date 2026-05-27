@@ -28,10 +28,9 @@ export async function PATCH(
       include: { user: true, car: true },
     })
 
-    // Email au client (non-bloquant)
     const settings = await getSettings()
     const fmt = (d: Date) => new Date(d).toLocaleDateString("fr-FR")
-    sendBookingStatusUpdate({
+    await sendBookingStatusUpdate({
       userName: booking.user.name ?? "Client",
       userEmail: booking.user.email ?? "",
       carName: booking.car.name,
