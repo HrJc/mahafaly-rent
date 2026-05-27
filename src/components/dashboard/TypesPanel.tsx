@@ -109,7 +109,7 @@ export function TypesPanel() {
         <div className="px-5 py-4 border-b border-neo-border flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-neo-text">Types de véhicules</p>
-            <p className="text-[10px] text-neo-light mt-0.5">{types.length} type{types.length !== 1 ? "s" : ""} · utilisés dans le catalogue et le formulaire d'ajout</p>
+            <p className="text-[10px] text-neo-light mt-0.5">{types.length} type{types.length !== 1 ? "s" : ""} · utilisés dans le catalogue et le formulaire d&apos;ajout</p>
           </div>
         </div>
 
